@@ -29,7 +29,7 @@
 
   let selectedDate: Date = new Date();
   let isProcessing = false;
-  let activeTab: 'today' | 'calendar' | 'all' = 'today';
+  let activeTab: 'today' | 'calendar' = 'today';
 
   // 모달 상태
   let isReviewOpen = false;
@@ -461,6 +461,8 @@
       teacherName={settings.teacherName}
       hasApiKey={!!settings.geminiApiKey}
       firebaseConnected={firebaseConnected}
+      activePage={activeTab}
+      on:changePage={(e) => (activeTab = e.detail)}
       on:openSettings={() => (isSettingsOpen = true)}
       on:openTimetable={() => (isTimetableOpen = true)}
       on:runDemo={handleRunDemo}
@@ -476,47 +478,7 @@
         on:openTextInput={() => (isTextInputOpen = true)}
       />
 
-      <!-- 3. 뷰 모드 탭 전환 바 -->
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
-        <div class="flex items-center space-x-1.5 p-1 bg-slate-200/60 rounded-2xl">
-          <button
-            type="button"
-            on:click={() => (activeTab = 'today')}
-            class={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
-              activeTab === 'today'
-                ? 'bg-white text-blue-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span>⭐ 오늘 하루 (시간표·조종례·할일)</span>
-          </button>
-          <button
-            type="button"
-            on:click={() => (activeTab = 'calendar')}
-            class={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
-              activeTab === 'calendar'
-                ? 'bg-white text-blue-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span>📅 월간 학사 캘린더</span>
-          </button>
-        </div>
-
-        <button
-          type="button"
-          on:click={() => (activeTab = activeTab === 'all' ? 'today' : 'all')}
-          class={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer ${
-            activeTab === 'all'
-              ? 'bg-blue-50 text-blue-700 border-blue-300 font-bold shadow-2xs'
-              : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          {activeTab === 'all' ? '✓ 전체 함께 보는 중' : '📋 위·아래 함께 보기'}
-        </button>
-      </div>
-
-      <!-- 4. 탭 콘텐츠 영역 -->
+      <!-- 3. 페이지 뷰 렌더링 (오늘 하루 / 학사 캘린더) -->
       {#if activeTab === 'today'}
         <div class="w-full animate-fade-in">
           <TodayDashboard
@@ -534,9 +496,7 @@
             on:openTimetableModal={() => (isTimetableOpen = true)}
           />
         </div>
-      {/if}
-
-      {#if activeTab === 'calendar'}
+      {:else if activeTab === 'calendar'}
         <div class="w-full animate-fade-in">
           <MonthCalendar
             events={events}
@@ -544,42 +504,6 @@
             on:selectDate={(e) => (selectedDate = e.detail)}
             on:viewSource={(e) => handleViewSource(e.detail)}
           />
-        </div>
-      {/if}
-
-      {#if activeTab === 'all'}
-        <div class="space-y-8 animate-fade-in">
-          <div>
-            <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-              오늘의 교무실 데스크
-            </h2>
-            <TodayDashboard
-              selectedDate={selectedDate}
-              todos={todos}
-              events={events}
-              timetable={timetable}
-              briefings={briefings}
-              on:toggleTodo={(e) => handleToggleTodo(e.detail)}
-              on:deleteTodo={(e) => handleDeleteTodo(e.detail)}
-              on:addTodo={(e) => handleAddCustomTodo(e.detail.title, e.detail.tag)}
-              on:toggleBriefing={(e) => handleToggleBriefing(e.detail)}
-              on:addBriefing={(e) => handleAddBriefing(e.detail)}
-              on:viewSource={(e) => handleViewSource(e.detail)}
-              on:openTimetableModal={() => (isTimetableOpen = true)}
-            />
-          </div>
-
-          <div class="pt-6 border-t border-slate-200">
-            <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-              월간 학사 캘린더
-            </h2>
-            <MonthCalendar
-              events={events}
-              selectedDate={selectedDate}
-              on:selectDate={(e) => (selectedDate = e.detail)}
-              on:viewSource={(e) => handleViewSource(e.detail)}
-            />
-          </div>
         </div>
       {/if}
     </main>

@@ -1,23 +1,20 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { Calendar, Settings, Clock, Sparkles, RefreshCw, Cloud } from 'lucide-svelte';
-  import { format } from 'date-fns';
-  import { ko } from 'date-fns/locale';
+  import { Calendar, Settings, Clock, Sparkles, RefreshCw, Cloud, LayoutDashboard, CalendarDays } from 'lucide-svelte';
 
   export let schoolName: string = '새솔고등학교';
   export let teacherName: string = '김선생님';
   export let hasApiKey: boolean = false;
   export let firebaseConnected: boolean = false;
+  export let activePage: 'today' | 'calendar' = 'today';
 
   const dispatch = createEventDispatcher<{
     openSettings: void;
     openTimetable: void;
     runDemo: void;
     resetData: void;
+    changePage: 'today' | 'calendar';
   }>();
-
-  const today = new Date();
-  const dateFormatted = format(today, 'yyyy년 M월 d일 (EEEE)', { locale: ko });
 </script>
 
 <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
@@ -48,15 +45,34 @@
       </div>
     </div>
 
-    <!-- 오늘 날짜 & 학사일정 배지 -->
-    <div class="hidden md:flex items-center space-x-3 text-sm">
-      <div class="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700">
-        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="font-semibold">{dateFormatted}</span>
-        <span class="text-xs text-slate-400">|</span>
-        <span class="text-xs font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">2학기 1주차</span>
-      </div>
-    </div>
+    <!-- 2개 페이지 네비게이션 탭 (중앙) -->
+    <nav class="flex items-center space-x-1 p-1 bg-slate-100/90 border border-slate-200/80 rounded-xl shadow-inner">
+      <button
+        type="button"
+        on:click={() => dispatch('changePage', 'today')}
+        class={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          activePage === 'today'
+            ? 'bg-white text-blue-600 shadow-xs'
+            : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+        }`}
+      >
+        <LayoutDashboard class="w-4 h-4 {activePage === 'today' ? 'text-blue-600' : 'text-slate-400'}" />
+        <span>오늘 하루</span>
+      </button>
+
+      <button
+        type="button"
+        on:click={() => dispatch('changePage', 'calendar')}
+        class={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          activePage === 'calendar'
+            ? 'bg-white text-blue-600 shadow-xs'
+            : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+        }`}
+      >
+        <CalendarDays class="w-4 h-4 {activePage === 'calendar' ? 'text-blue-600' : 'text-slate-400'}" />
+        <span>학사 캘린더</span>
+      </button>
+    </nav>
 
     <!-- 우측 액션 버튼들 -->
     <div class="flex items-center space-x-2">
@@ -107,3 +123,4 @@
     </div>
   </div>
 </header>
+
