@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import Header from './components/Header.svelte';
   import GlobalDropZone from './components/GlobalDropZone.svelte';
-  import MonthCalendar from './components/MonthCalendar.svelte';
-  import TodayDashboard from './components/TodayDashboard.svelte';
+  import { TodayPage, CalendarPage, type AppRoute } from './routes';
   import AIReviewModal from './components/AIReviewModal.svelte';
   import SourceViewerModal from './components/SourceViewerModal.svelte';
   import TimetableModal from './components/TimetableModal.svelte';
@@ -11,7 +10,7 @@
   import TextInputModal from './components/TextInputModal.svelte';
 
   import { Storage, type AppSettings } from './lib/storage';
-  import { initFirebase, isFirebaseConnected, subscribeToTeacherData } from './lib/firebase';
+  import { initFirebase, isFirebaseConnected, subscribeToTeacherData, seedInitialDataIfEmpty } from './lib/firebase';
   import type { ScheduleEvent, TodoItem, WeeklyTimetable, MorningBriefingItem, AIParsedResult, MultiParsedItem } from './lib/types';
   import { SAMPLE_NOTICE_IMAGE, DEMO_AI_PARSED } from './lib/mockData';
   import { parseTeacherInboxWithGemini, type ParseResultData } from './lib/gemini';
@@ -29,7 +28,18 @@
 
   let selectedDate: Date = new Date();
   let isProcessing = false;
-  let activeTab: 'today' | 'calendar' = 'today';
+  let activeTab: AppRoute = 'today';
+
+  // URL 해시 라우팅 동기화
+  function updateRouteFromHash() {
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash.replace(/^#\/?/, '').trim().toLowerCase();
+    if (hash === 'calendar') {
+      activeTab = 'calendar';
+    } else {
+      activeTab = 'today';
+    }
+  }
 
   // 모달 상태
   let isReviewOpen = false;
@@ -63,8 +73,13 @@
   let isSettingsOpen = false;
   let isTextInputOpen = false;
 
-  // 데이터 로드 및 Firebase 초기화
-  onMount(() => {
+  // 데이터 로드 및 Firebase / 라우터 초기화
+  onMount(async () => {
+    updateRouteFromHash();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('hashchange', updateRouteFromHash);
+    }
+
     events = Storage.getEvents();
     todos = Storage.getTodos();
     timetable = Storage.getTimetable();
@@ -72,16 +87,28 @@
     settings = Storage.getSettings();
 
     // Firebase 초기화 시도
-    if (settings?.firebaseConfig) {
-      firebaseConnected = initFirebase(settings.firebaseConfig);
-      if (firebaseConnected) {
-        subscribeToTeacherData('default_teacher', {
-          onEvents: (cloudEvents) => { if (cloudEvents) events = cloudEvents; },
-          onTodos: (cloudTodos) => { if (cloudTodos) todos = cloudTodos; },
-          onTimetable: (cloudTimetable) => { if (cloudTimetable) timetable = cloudTimetable; },
-          onBriefings: (cloudBriefings) => { if (cloudBriefings) briefings = cloudBriefings; },
-        });
-      }
+    firebaseConnected = initFirebase(settings?.firebaseConfig);
+    if (firebaseConnected) {
+      subscribeToTeacherData('default_teacher', {
+        onEvents: (cloudEvents) => { if (cloudEvents && cloudEvents.length > 0) events = cloudEvents; },
+        onTodos: (cloudTodos) => { if (cloudTodos && cloudTodos.length > 0) todos = cloudTodos; },
+        onTimetable: (cloudTimetable) => { if (cloudTimetable) timetable = cloudTimetable; },
+        onBriefings: (cloudBriefings) => { if (cloudBriefings && cloudBriefings.length > 0) briefings = cloudBriefings; },
+      });
+
+      await seedInitialDataIfEmpty('default_teacher', {
+        events,
+        todos,
+        timetable,
+        briefings,
+        settings,
+      });
+    }
+  });
+
+  onDestroy(() => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('hashchange', updateRouteFromHash);
     }
   });
 
@@ -436,12 +463,28 @@
   }
 
   // 설정 저장
-  function handleSaveSettings(newSettings: AppSettings) {
+  async function handleSaveSettings(newSettings: AppSettings) {
     Storage.saveSettings(newSettings);
     settings = newSettings;
 
     if (newSettings.firebaseConfig) {
       firebaseConnected = initFirebase(newSettings.firebaseConfig);
+      if (firebaseConnected) {
+        subscribeToTeacherData('default_teacher', {
+          onEvents: (cloudEvents) => { if (cloudEvents && cloudEvents.length > 0) events = cloudEvents; },
+          onTodos: (cloudTodos) => { if (cloudTodos && cloudTodos.length > 0) todos = cloudTodos; },
+          onTimetable: (cloudTimetable) => { if (cloudTimetable) timetable = cloudTimetable; },
+          onBriefings: (cloudBriefings) => { if (cloudBriefings && cloudBriefings.length > 0) briefings = cloudBriefings; },
+        });
+
+        await seedInitialDataIfEmpty('default_teacher', {
+          events,
+          todos,
+          timetable,
+          briefings,
+          settings,
+        });
+      }
     }
   }
 </script>
@@ -478,33 +521,29 @@
         on:openTextInput={() => (isTextInputOpen = true)}
       />
 
-      <!-- 3. 페이지 뷰 렌더링 (오늘 하루 / 학사 캘린더) -->
+      <!-- 3. 페이지 뷰 렌더링 (src/routes/TodayPage, src/routes/CalendarPage) -->
       {#if activeTab === 'today'}
-        <div class="w-full animate-fade-in">
-          <TodayDashboard
-            selectedDate={selectedDate}
-            todos={todos}
-            events={events}
-            timetable={timetable}
-            briefings={briefings}
-            on:toggleTodo={(e) => handleToggleTodo(e.detail)}
-            on:deleteTodo={(e) => handleDeleteTodo(e.detail)}
-            on:addTodo={(e) => handleAddCustomTodo(e.detail.title, e.detail.tag)}
-            on:toggleBriefing={(e) => handleToggleBriefing(e.detail)}
-            on:addBriefing={(e) => handleAddBriefing(e.detail)}
-            on:viewSource={(e) => handleViewSource(e.detail)}
-            on:openTimetableModal={() => (isTimetableOpen = true)}
-          />
-        </div>
+        <TodayPage
+          selectedDate={selectedDate}
+          todos={todos}
+          events={events}
+          timetable={timetable}
+          briefings={briefings}
+          on:toggleTodo={(e) => handleToggleTodo(e.detail)}
+          on:deleteTodo={(e) => handleDeleteTodo(e.detail)}
+          on:addTodo={(e) => handleAddCustomTodo(e.detail.title, e.detail.tag)}
+          on:toggleBriefing={(e) => handleToggleBriefing(e.detail)}
+          on:addBriefing={(e) => handleAddBriefing(e.detail)}
+          on:viewSource={(e) => handleViewSource(e.detail)}
+          on:openTimetableModal={() => (isTimetableOpen = true)}
+        />
       {:else if activeTab === 'calendar'}
-        <div class="w-full animate-fade-in">
-          <MonthCalendar
-            events={events}
-            selectedDate={selectedDate}
-            on:selectDate={(e) => (selectedDate = e.detail)}
-            on:viewSource={(e) => handleViewSource(e.detail)}
-          />
-        </div>
+        <CalendarPage
+          events={events}
+          selectedDate={selectedDate}
+          on:selectDate={(e) => (selectedDate = e.detail)}
+          on:viewSource={(e) => handleViewSource(e.detail)}
+        />
       {/if}
     </main>
 

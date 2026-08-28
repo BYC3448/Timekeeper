@@ -1,7 +1,24 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { X, Key, Shield, School, User, RotateCcw, Check, ExternalLink, Cloud, Database } from 'lucide-svelte';
+  import {
+    X,
+    Key,
+    Shield,
+    School,
+    User,
+    RotateCcw,
+    Check,
+    ExternalLink,
+    Cloud,
+    Database,
+    Sparkles,
+    CheckCircle2,
+    AlertCircle,
+    Copy,
+    ClipboardPaste,
+  } from 'lucide-svelte';
   import type { AppSettings } from '../lib/storage';
+  import { initFirebase, isFirebaseConnected } from '../lib/firebase';
 
   export let isOpen: boolean = false;
   export let settings: AppSettings | null = null;
@@ -26,7 +43,13 @@
   let firebaseProjectId = '';
   let firebaseAppId = '';
   let firebaseAuthDomain = '';
+  let firebaseStorageBucket = '';
+  let firebaseMessagingSenderId = '';
   let useCloudSync = false;
+
+  let rawConfigPaste = '';
+  let testStatus: 'idle' | 'testing' | 'success' | 'failed' = 'idle';
+  let testMessage = '';
 
   let activeTab: 'gemini' | 'firebase' | 'profile' = 'gemini';
   let savedToast = false;
@@ -45,7 +68,84 @@
     firebaseProjectId = settings.firebaseConfig?.projectId || '';
     firebaseAppId = settings.firebaseConfig?.appId || '';
     firebaseAuthDomain = settings.firebaseConfig?.authDomain || '';
-    useCloudSync = settings.firebaseConfig?.useCloudSync || false;
+    firebaseStorageBucket = settings.firebaseConfig?.storageBucket || '';
+    firebaseMessagingSenderId = settings.firebaseConfig?.messagingSenderId || '';
+    useCloudSync = settings.firebaseConfig?.useCloudSync || (!!firebaseApiKey && !!firebaseProjectId);
+  }
+
+  // Firebase 설정 스니펫 복사/붙여넣기 자동 파싱
+  function handleParseSnippet() {
+    if (!rawConfigPaste.trim()) return;
+
+    try {
+      const extract = (key: string) => {
+        const regex = new RegExp(`${key}['"\\s]*:['"\\s]*([^'",\\s]+)['"]?`, 'i');
+        const match = rawConfigPaste.match(regex);
+        return match ? match[1].replace(/['",]/g, '').trim() : '';
+      };
+
+      const apiKey = extract('apiKey');
+      const projectId = extract('projectId');
+      const appId = extract('appId');
+      const authDomain = extract('authDomain');
+      const storageBucket = extract('storageBucket');
+      const messagingSenderId = extract('messagingSenderId');
+
+      if (apiKey) firebaseApiKey = apiKey;
+      if (projectId) firebaseProjectId = projectId;
+      if (appId) firebaseAppId = appId;
+      if (authDomain) firebaseAuthDomain = authDomain;
+      if (storageBucket) firebaseStorageBucket = storageBucket;
+      if (messagingSenderId) firebaseMessagingSenderId = messagingSenderId;
+
+      if (apiKey && projectId) {
+        useCloudSync = true;
+        testStatus = 'idle';
+        testMessage = '설정이 성공적으로 파싱되어 입력되었습니다!';
+        rawConfigPaste = '';
+      } else {
+        testStatus = 'failed';
+        testMessage = 'apiKey 또는 projectId를 추출하지 못했습니다. 형식을 확인해주세요.';
+      }
+    } catch (e: any) {
+      testStatus = 'failed';
+      testMessage = '파싱 오류: ' + (e?.message || '스니펫을 확인해주세요.');
+    }
+  }
+
+  // Firebase 연결 즉시 테스트
+  async function handleTestConnection() {
+    if (!firebaseApiKey.trim() || !firebaseProjectId.trim()) {
+      testStatus = 'failed';
+      testMessage = 'API Key와 Project ID를 모두 입력해주세요.';
+      return;
+    }
+
+    testStatus = 'testing';
+    testMessage = 'Firebase Firestore 연결 시도 중...';
+
+    try {
+      const ok = initFirebase({
+        apiKey: firebaseApiKey.trim(),
+        projectId: firebaseProjectId.trim(),
+        appId: firebaseAppId.trim(),
+        authDomain: firebaseAuthDomain.trim(),
+        storageBucket: firebaseStorageBucket.trim(),
+        messagingSenderId: firebaseMessagingSenderId.trim(),
+      });
+
+      if (ok) {
+        testStatus = 'success';
+        testMessage = '🎉 Firebase Firestore에 정상적으로 연결되었습니다!';
+        useCloudSync = true;
+      } else {
+        testStatus = 'failed';
+        testMessage = '연결 실패: 설정 정보를 다시 확인해주세요.';
+      }
+    } catch (e: any) {
+      testStatus = 'failed';
+      testMessage = '오류 발생: ' + (e?.message || '연결에 실패했습니다.');
+    }
   }
 
   function handleSave() {
@@ -69,7 +169,9 @@
         projectId: firebaseProjectId.trim(),
         appId: firebaseAppId.trim(),
         authDomain: firebaseAuthDomain.trim(),
-        useCloudSync,
+        storageBucket: firebaseStorageBucket.trim(),
+        messagingSenderId: firebaseMessagingSenderId.trim(),
+        useCloudSync: !!firebaseApiKey.trim() && !!firebaseProjectId.trim(),
       },
     });
 
@@ -92,7 +194,7 @@
           </div>
           <div>
             <h2 class="text-base font-bold">환경 설정</h2>
-            <p class="text-xs text-slate-400">Gemini AI · Firebase 클라우드 · 교사 프로필</p>
+            <p class="text-xs text-slate-400">Gemini AI · Firebase 클라우드 DB · 교사 프로필</p>
           </div>
         </div>
         <button
@@ -128,7 +230,7 @@
           }`}
         >
           <Cloud class="w-3.5 h-3.5" />
-          <span>Firebase 연동</span>
+          <span>Firebase 클라우드 연동</span>
         </button>
         <button
           type="button"
@@ -155,7 +257,7 @@
                   <Key class="w-3.5 h-3.5 text-blue-600" />
                   <span>Google Gemini API Key</span>
                   <span class="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono font-semibold">
-                    gemini-3.5-flash
+                    gemini-2.5-flash
                   </span>
                 </label>
                 <a
@@ -204,19 +306,44 @@
         <!-- 2. Firebase 연동 설정 -->
         {#if activeTab === 'firebase'}
           <div class="space-y-4">
-            <div class="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-900 leading-relaxed">
-              <p class="font-bold mb-0.5 flex items-center space-x-1">
-                <Database class="w-4 h-4 text-amber-600" />
-                <span>Firebase Firestore 클라우드 동기화 (선택 사항)</span>
+            <div class="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 text-xs text-blue-950 leading-relaxed">
+              <p class="font-bold mb-1 flex items-center space-x-1.5 text-blue-900">
+                <Database class="w-4 h-4 text-blue-600" />
+                <span>Firebase Cloud Firestore 실시간 클라우드 DB 연동</span>
               </p>
-              <p class="text-[11px] text-amber-800">
-                Firebase 설정을 입력하시면 여러 기기나 브라우저에서 일정이 실시간 동기화됩니다. 비워두시면 브라우저 로컬 저장소로 안전하게 작동합니다.
+              <p class="text-[11px] text-blue-800">
+                Firebase Web App 설정값을 등록하면 로컬 스토리지 대신 <strong>Cloud Firestore 실시간 데이터베이스</strong>로 일정, To-Do, 시간표, 조종례 데이터가 전 기기 실시간 동기화됩니다.
               </p>
             </div>
 
+            <!-- 간편 붙여넣기 박스 -->
+            <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+              <div class="flex items-center justify-between">
+                <label for="raw-config-snippet" class="text-xs font-bold text-slate-700 flex items-center space-x-1">
+                  <ClipboardPaste class="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Firebase 콘솔 코드 붙여넣기 (원클릭 자동 파싱)</span>
+                </label>
+                <button
+                  type="button"
+                  on:click={handleParseSnippet}
+                  class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-lg transition active:scale-95 cursor-pointer shadow-xs"
+                >
+                  자동 추출
+                </button>
+              </div>
+              <textarea
+                id="raw-config-snippet"
+                rows="3"
+                bind:value={rawConfigPaste}
+                placeholder={"const firebaseConfig = { apiKey: '...', projectId: '...', appId: '...' };"}
+                class="w-full px-3 py-2 text-xs font-mono bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"
+              ></textarea>
+            </div>
+
+            <!-- 개별 입력 필드 -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label for="fb-project-id" class="text-[11px] font-bold text-slate-700 block mb-1">Project ID</label>
+                <label for="fb-project-id" class="text-[11px] font-bold text-slate-700 block mb-1">Project ID *</label>
                 <input
                   id="fb-project-id"
                   type="text"
@@ -226,7 +353,7 @@
                 />
               </div>
               <div>
-                <label for="fb-api-key" class="text-[11px] font-bold text-slate-700 block mb-1">Firebase API Key</label>
+                <label for="fb-api-key" class="text-[11px] font-bold text-slate-700 block mb-1">Firebase API Key *</label>
                 <input
                   id="fb-api-key"
                   type="password"
@@ -255,6 +382,34 @@
                   class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
+            </div>
+
+            <!-- 연결 테스트 버튼 및 상태 메시지 -->
+            <div class="pt-2 flex items-center justify-between">
+              <button
+                type="button"
+                on:click={handleTestConnection}
+                class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition active:scale-95 flex items-center space-x-1.5 cursor-pointer shadow-xs"
+              >
+                <Cloud class="w-3.5 h-3.5 text-blue-400" />
+                <span>연결 테스트</span>
+              </button>
+
+              {#if testStatus === 'testing'}
+                <span class="text-xs text-blue-600 font-semibold animate-pulse">연결 확인 중...</span>
+              {:else if testStatus === 'success'}
+                <span class="text-xs text-emerald-600 font-bold flex items-center space-x-1">
+                  <CheckCircle2 class="w-4 h-4" />
+                  <span>{testMessage}</span>
+                </span>
+              {:else if testStatus === 'failed'}
+                <span class="text-xs text-rose-600 font-semibold flex items-center space-x-1">
+                  <AlertCircle class="w-4 h-4" />
+                  <span>{testMessage}</span>
+                </span>
+              {:else if testMessage}
+                <span class="text-xs text-indigo-600 font-semibold">{testMessage}</span>
+              {/if}
             </div>
           </div>
         {/if}

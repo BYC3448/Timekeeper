@@ -1,6 +1,34 @@
-import type { ScheduleEvent, TodoItem, WeeklyTimetable, MorningBriefingItem, TeacherProfile, DayOfWeek, FirebaseConfig } from './types';
-import { INITIAL_EVENTS, INITIAL_TODOS, INITIAL_TIMETABLE, INITIAL_BRIEFINGS } from './mockData';
-import { syncEventsToFirestore, syncTodosToFirestore, syncTimetableToFirestore, syncBriefingsToFirestore } from './firebase';
+import type {
+  ScheduleEvent,
+  TodoItem,
+  WeeklyTimetable,
+  MorningBriefingItem,
+  TeacherProfile,
+  DayOfWeek,
+  FirebaseConfig,
+} from './types';
+import {
+  INITIAL_EVENTS,
+  INITIAL_TODOS,
+  INITIAL_TIMETABLE,
+  INITIAL_BRIEFINGS,
+} from './mockData';
+import {
+  isFirebaseConnected,
+  addEventToFirestore,
+  deleteEventFromFirestore,
+  syncAllEventsToFirestore,
+  addTodosToFirestore,
+  toggleTodoInFirestore,
+  deleteTodoFromFirestore,
+  syncAllTodosToFirestore,
+  saveTimetableToFirestore,
+  addBriefingToFirestore,
+  toggleBriefingInFirestore,
+  deleteBriefingFromFirestore,
+  syncAllBriefingsToFirestore,
+  saveSettingsToFirestore,
+} from './firebase';
 
 const KEYS = {
   EVENTS: 'tcal_events_v1',
@@ -61,7 +89,7 @@ function safeSet<T>(key: string, value: T): void {
 }
 
 /**
- * 시간표 데이터 무결성 보장 함수 (한글 요일, 대소문자, 객체/배열 형태 모두 정규화)
+ * 시간표 데이터 무결성 보장 함수
  */
 export function sanitizeTimetable(raw: any): WeeklyTimetable {
   if (!raw || typeof raw !== 'object') return INITIAL_TIMETABLE;
@@ -110,7 +138,6 @@ export function sanitizeTimetable(raw: any): WeeklyTimetable {
       let subject = (found?.subject || '공강').trim();
       let className = (found?.className || '-').trim();
 
-      // subject에 과목 대신 학년/학급만 들어가고 className에 과목명이 들어간 경우 자동 보정
       const isGradePattern = /^[1-3]학년?$/.test(subject) || /^[1-3]-[0-9]+$/.test(subject);
       const isClassSubject = className !== '-' && !/^[1-3]학년?$/.test(className) && !/^[1-3]-[0-9]+$/.test(className);
 
@@ -134,7 +161,7 @@ export function sanitizeTimetable(raw: any): WeeklyTimetable {
 }
 
 /**
- * 스토리지 어댑터 (로컬스토리지 + Firebase Firestore 하이브리드 지원)
+ * 스토리지 어댑터 (Firebase Cloud Firestore + 로컬 캐시 하이브리드 연동)
  */
 export const Storage = {
   // 이벤트(마감 일정) 관리
@@ -145,18 +172,26 @@ export const Storage = {
   saveEvents: (events: ScheduleEvent[]): ScheduleEvent[] => {
     const clean = Array.isArray(events) ? events : [];
     safeSet(KEYS.EVENTS, clean);
-    syncEventsToFirestore(clean);
+    if (isFirebaseConnected()) {
+      syncAllEventsToFirestore(clean);
+    }
     return clean;
   },
   addEvent: (event: ScheduleEvent): ScheduleEvent[] => {
     const events = Storage.getEvents();
-    const updated = [event, ...events];
-    Storage.saveEvents(updated);
+    const updated = [event, ...events.filter((e) => e.id !== event.id)];
+    safeSet(KEYS.EVENTS, updated);
+    if (isFirebaseConnected()) {
+      addEventToFirestore(event);
+    }
     return updated;
   },
   deleteEvent: (id: string): ScheduleEvent[] => {
-    const events = Storage.getEvents().filter(e => e.id !== id);
-    Storage.saveEvents(events);
+    const events = Storage.getEvents().filter((e) => e.id !== id);
+    safeSet(KEYS.EVENTS, events);
+    if (isFirebaseConnected()) {
+      deleteEventFromFirestore(id);
+    }
     return events;
   },
 
@@ -168,29 +203,42 @@ export const Storage = {
   saveTodos: (todos: TodoItem[]): TodoItem[] => {
     const clean = Array.isArray(todos) ? todos : [];
     safeSet(KEYS.TODOS, clean);
-    syncTodosToFirestore(clean);
+    if (isFirebaseConnected()) {
+      syncAllTodosToFirestore(clean);
+    }
     return clean;
   },
   addTodos: (newTodos: TodoItem[]): TodoItem[] => {
     const todos = Storage.getTodos();
     const updated = [...newTodos, ...todos];
-    Storage.saveTodos(updated);
+    safeSet(KEYS.TODOS, updated);
+    if (isFirebaseConnected()) {
+      addTodosToFirestore(newTodos);
+    }
     return updated;
   },
   toggleTodo: (id: string): TodoItem[] => {
-    const todos = Storage.getTodos().map(t =>
+    const todos = Storage.getTodos();
+    const target = todos.find((t) => t.id === id);
+    const updated = todos.map((t) =>
       t.id === id ? { ...t, isCompleted: !t.isCompleted } : t
     );
-    Storage.saveTodos(todos);
-    return todos;
+    safeSet(KEYS.TODOS, updated);
+    if (isFirebaseConnected() && target) {
+      toggleTodoInFirestore(id, !target.isCompleted);
+    }
+    return updated;
   },
   deleteTodo: (id: string): TodoItem[] => {
-    const todos = Storage.getTodos().filter(t => t.id !== id);
-    Storage.saveTodos(todos);
+    const todos = Storage.getTodos().filter((t) => t.id !== id);
+    safeSet(KEYS.TODOS, todos);
+    if (isFirebaseConnected()) {
+      deleteTodoFromFirestore(id);
+    }
     return todos;
   },
 
-  // 시간표 관리 (데이터 무결성 및 크래시 방지 정규화)
+  // 시간표 관리
   getTimetable: (): WeeklyTimetable => {
     const raw = safeGet<WeeklyTimetable>(KEYS.TIMETABLE, INITIAL_TIMETABLE);
     return sanitizeTimetable(raw);
@@ -198,7 +246,9 @@ export const Storage = {
   saveTimetable: (timetable: WeeklyTimetable): WeeklyTimetable => {
     const clean = sanitizeTimetable(timetable);
     safeSet(KEYS.TIMETABLE, clean);
-    syncTimetableToFirestore(clean);
+    if (isFirebaseConnected()) {
+      saveTimetableToFirestore(clean);
+    }
     return clean;
   },
 
@@ -208,15 +258,22 @@ export const Storage = {
   },
   saveBriefings: (briefings: MorningBriefingItem[]): MorningBriefingItem[] => {
     safeSet(KEYS.BRIEFINGS, briefings);
-    syncBriefingsToFirestore(briefings);
+    if (isFirebaseConnected()) {
+      syncAllBriefingsToFirestore(briefings);
+    }
     return briefings;
   },
   toggleBriefing: (id: string): MorningBriefingItem[] => {
-    const briefings = Storage.getBriefings().map(b =>
+    const briefings = Storage.getBriefings();
+    const target = briefings.find((b) => b.id === id);
+    const updated = briefings.map((b) =>
       b.id === id ? { ...b, isDone: !b.isDone } : b
     );
-    Storage.saveBriefings(briefings);
-    return briefings;
+    safeSet(KEYS.BRIEFINGS, updated);
+    if (isFirebaseConnected() && target) {
+      toggleBriefingInFirestore(id, !target.isDone);
+    }
+    return updated;
   },
   addBriefing: (content: string, type: MorningBriefingItem['type'] = 'announcement'): MorningBriefingItem[] => {
     const list = Storage.getBriefings();
@@ -228,8 +285,19 @@ export const Storage = {
       date: new Date().toISOString().split('T')[0],
     };
     const updated = [newItem, ...list];
-    Storage.saveBriefings(updated);
+    safeSet(KEYS.BRIEFINGS, updated);
+    if (isFirebaseConnected()) {
+      addBriefingToFirestore(newItem);
+    }
     return updated;
+  },
+  deleteBriefing: (id: string): MorningBriefingItem[] => {
+    const briefings = Storage.getBriefings().filter((b) => b.id !== id);
+    safeSet(KEYS.BRIEFINGS, briefings);
+    if (isFirebaseConnected()) {
+      deleteBriefingFromFirestore(id);
+    }
+    return briefings;
   },
 
   // 환경설정 및 API 키
@@ -238,14 +306,24 @@ export const Storage = {
   },
   saveSettings: (settings: AppSettings): void => {
     safeSet(KEYS.SETTINGS, settings);
+    if (isFirebaseConnected()) {
+      saveSettingsToFirestore(settings);
+    }
   },
 
-  // 전체 데이터 리셋 (테스트용)
+  // 전체 데이터 리셋 (초기 샘플 복원)
   resetToDefault: (): void => {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(KEYS.EVENTS);
     localStorage.removeItem(KEYS.TODOS);
     localStorage.removeItem(KEYS.TIMETABLE);
     localStorage.removeItem(KEYS.BRIEFINGS);
-  }
+
+    if (isFirebaseConnected()) {
+      syncAllEventsToFirestore(INITIAL_EVENTS);
+      syncAllTodosToFirestore(INITIAL_TODOS);
+      saveTimetableToFirestore(INITIAL_TIMETABLE);
+      syncAllBriefingsToFirestore(INITIAL_BRIEFINGS);
+    }
+  },
 };

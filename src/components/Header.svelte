@@ -1,26 +1,34 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { Calendar, Settings, Clock, Sparkles, RefreshCw, Cloud, LayoutDashboard, CalendarDays } from 'lucide-svelte';
+  import type { AppRoute } from '../routes';
 
   export let schoolName: string = '새솔고등학교';
   export let teacherName: string = '김선생님';
   export let hasApiKey: boolean = false;
   export let firebaseConnected: boolean = false;
-  export let activePage: 'today' | 'calendar' = 'today';
+  export let activePage: AppRoute = 'today';
 
   const dispatch = createEventDispatcher<{
     openSettings: void;
     openTimetable: void;
     runDemo: void;
     resetData: void;
-    changePage: 'today' | 'calendar';
+    changePage: AppRoute;
   }>();
+
+  function navigateTo(page: AppRoute) {
+    if (typeof window !== 'undefined') {
+      window.location.hash = `/${page}`;
+    }
+    dispatch('changePage', page);
+  }
 </script>
 
 <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
     <!-- 로고 & 타이틀 -->
-    <div class="flex items-center space-x-3">
+    <a href="#/today" class="flex items-center space-x-3 text-left cursor-pointer hover:opacity-95 transition">
       <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
         <Calendar class="w-6 h-6" />
       </div>
@@ -43,13 +51,13 @@
           {schoolName} · {teacherName}
         </p>
       </div>
-    </div>
+    </a>
 
     <!-- 2개 페이지 네비게이션 탭 (중앙) -->
     <nav class="flex items-center space-x-1 p-1 bg-slate-100/90 border border-slate-200/80 rounded-xl shadow-inner">
-      <button
-        type="button"
-        on:click={() => dispatch('changePage', 'today')}
+      <a
+        href="#/today"
+        on:click={() => navigateTo('today')}
         class={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
           activePage === 'today'
             ? 'bg-white text-blue-600 shadow-xs'
@@ -58,11 +66,11 @@
       >
         <LayoutDashboard class="w-4 h-4 {activePage === 'today' ? 'text-blue-600' : 'text-slate-400'}" />
         <span>오늘 하루</span>
-      </button>
+      </a>
 
-      <button
-        type="button"
-        on:click={() => dispatch('changePage', 'calendar')}
+      <a
+        href="#/calendar"
+        on:click={() => navigateTo('calendar')}
         class={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
           activePage === 'calendar'
             ? 'bg-white text-blue-600 shadow-xs'
@@ -71,7 +79,7 @@
       >
         <CalendarDays class="w-4 h-4 {activePage === 'calendar' ? 'text-blue-600' : 'text-slate-400'}" />
         <span>학사 캘린더</span>
-      </button>
+      </a>
     </nav>
 
     <!-- 우측 액션 버튼들 -->
@@ -123,4 +131,3 @@
     </div>
   </div>
 </header>
-
