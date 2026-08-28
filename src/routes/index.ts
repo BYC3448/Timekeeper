@@ -1,5 +1,5 @@
-import TodayPage from './TodayPage.svelte';
-import CalendarPage from './CalendarPage.svelte';
+import TodayPage from './today/TodayPage.svelte';
+import CalendarPage from './calendar/CalendarPage.svelte';
 
 export type AppRoute = 'today' | 'calendar';
 

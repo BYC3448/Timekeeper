@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import TodayDashboard from '../components/TodayDashboard.svelte';
-  import type { ScheduleEvent, TodoItem, WeeklyTimetable, MorningBriefingItem } from '../lib/types';
+  import TodayDashboard from '../../components/TodayDashboard.svelte';
+  import type { ScheduleEvent, TodoItem, WeeklyTimetable, MorningBriefingItem } from '../../lib/types';
 
   export let selectedDate: Date = new Date();
   export let todos: TodoItem[] = [];

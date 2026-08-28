@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import MonthCalendar from '../components/MonthCalendar.svelte';
-  import type { ScheduleEvent } from '../lib/types';
+  import MonthCalendar from '../../components/MonthCalendar.svelte';
+  import type { ScheduleEvent } from '../../lib/types';
 
   export let events: ScheduleEvent[] = [];
   export let selectedDate: Date = new Date();
