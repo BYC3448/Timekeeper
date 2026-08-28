@@ -14,6 +14,7 @@
   import type { ScheduleEvent, TodoItem, WeeklyTimetable, MorningBriefingItem, AIParsedResult, MultiParsedItem } from './lib/types';
   import { SAMPLE_NOTICE_IMAGE, DEMO_AI_PARSED } from './lib/mockData';
   import { parseTeacherInboxWithGemini, type ParseResultData } from './lib/gemini';
+  import { parseDocumentWithUpstage } from './lib/upstage';
   import { format, subDays, parseISO } from 'date-fns';
   import confetti from 'canvas-confetti';
   import { RotateCcw, Trash2 } from 'lucide-svelte';
@@ -144,9 +145,25 @@
       currentSourceText = input.data;
       currentSourceImage = undefined;
     } else if (input.type === 'hwp') {
-      textContent = `[한글파일 원본 첨부: ${input.fileName}]\n2026학년도 2학기 1차 지필평가 출제 및 관리 계획안 공문`;
+      const upstageKey = import.meta.env.VITE_UPSTAGE_API_KEY || settings?.upstageApiKey;
+      if (!upstageKey || upstageKey.trim().length < 5) {
+        alert('HWP 파일을 읽으려면 Upstage API 키가 필요합니다.\n\n.env 파일에 VITE_UPSTAGE_API_KEY=up_... 형태로 입력해 주세요.');
+        isProcessing = false;
+        return;
+      }
+      try {
+        textContent = await parseDocumentWithUpstage({
+          apiKey: upstageKey,
+          fileBase64: input.data,
+          fileName: input.fileName || 'document.hwp',
+        });
+      } catch (err: any) {
+        alert(`HWP 파싱 오류: ${err.message}`);
+        isProcessing = false;
+        return;
+      }
       currentSourceText = textContent;
-      currentSourceImage = input.data;
+      currentSourceImage = undefined;
     }
 
     try {

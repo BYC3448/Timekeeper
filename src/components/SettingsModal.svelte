@@ -1,13 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import {
-    X,
-    User,
-    Shield,
-    RotateCcw,
-    Check,
-    Sparkles,
-  } from 'lucide-svelte';
+  import { X, User, Shield, RotateCcw, Check, Sparkles } from 'lucide-svelte';
   import type { AppSettings } from '../lib/storage';
 
   export let isOpen: boolean = false;
@@ -42,6 +35,7 @@
   function handleSave() {
     dispatch('save', {
       geminiApiKey: settings?.geminiApiKey,
+      upstageApiKey: settings?.upstageApiKey,
       autoMaskPersonalInfo: autoMask,
       schoolName: schoolName.trim(),
       teacherName: teacherName.trim(),

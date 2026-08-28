@@ -1,20 +1,32 @@
-node_modules
-dist
-dist-ssr
-*.local
+# 빌드 산출물
+dist/
+dist-ssr/
+.next/
+.svelte-kit/
 
-# Environment variables
+# 의존성
+node_modules/
+
+# 환경변수 (API 키 등 민감 정보)
 .env
 .env.*
 !.env.example
 
-# Editor directories and files
+# TypeScript 캐시
+tsconfig.tsbuildinfo
+*.local
+
+# 에디터
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
-.idea
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# OS
+.DS_Store
+Thumbs.db
