@@ -3,12 +3,9 @@
   import {
     X,
     User,
-    School,
     Shield,
     RotateCcw,
     Check,
-    Briefcase,
-    BookOpen,
     Sparkles,
   } from 'lucide-svelte';
   import type { AppSettings } from '../lib/storage';

@@ -40,7 +40,6 @@ const KEYS = {
 
 export interface AppSettings {
   geminiApiKey?: string;
-  solarApiKey?: string;
   autoMaskPersonalInfo: boolean;
   schoolName: string;
   teacherName: string;

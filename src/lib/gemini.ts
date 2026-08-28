@@ -17,7 +17,7 @@ export interface ParsedItem {
   time?: string | null;
   endTime?: string | null;
   place?: string | null;
-  category: '생기부' | '평가' | '행정' | '연수' | '상담' | '회의' | '수업' | '기타';
+  category: '생기부' | '평가' | '행정' | '연수' | '상담' | '회의' | '수업' | '행사' | '기타';
   isMine: boolean;
   mineReason?: string;
   needsDate?: boolean;
@@ -47,7 +47,7 @@ async function callGeminiGenerate(params: {
   parts: any[];
   systemInstruction?: string;
 }): Promise<string> {
-  const { apiKey, preferredModel = 'gemini-3.5-flash', parts, systemInstruction } = params;
+  const { apiKey, preferredModel = 'gemini-2.5-flash', parts, systemInstruction } = params;
 
   const candidateModels = Array.from(new Set([
     preferredModel,

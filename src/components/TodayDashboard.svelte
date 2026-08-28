@@ -43,6 +43,7 @@
 
   let newTodoText = '';
   let newBriefingText = '';
+  let todayEventsAsTodos: TodoItem[] = [];
 
   $: safeEvents = Array.isArray(events) ? events : [];
   $: safeTodos = Array.isArray(todos) ? todos : [];
@@ -66,7 +67,7 @@
   // 오늘 날짜로 잡혀있는 이벤트가 있다면, 가운데 To-Do 목록에 자동 통합
   $: todayEventsAsTodos = safeEvents
     .filter((e) => e && e.date === todayStr && !safeTodos.some((t) => t.eventId === e.id || t.title === e.title))
-    .map((e) => ({
+    .map((e): TodoItem => ({
       id: `todo-evt-${e.id}`,
       eventId: e.id,
       eventTitle: e.title,
@@ -80,6 +81,7 @@
       sourceText: e.sourceText,
       fileName: e.fileName,
       createdAt: e.createdAt,
+      isRollover: false,
     }));
 
   $: targetTodos = isToday

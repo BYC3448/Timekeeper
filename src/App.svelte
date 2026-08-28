@@ -10,7 +10,7 @@
   import TextInputModal from './components/TextInputModal.svelte';
 
   import { Storage, type AppSettings } from './lib/storage';
-  import { initFirebase, isFirebaseConnected, subscribeToTeacherData, seedInitialDataIfEmpty } from './lib/firebase';
+  import { initFirebase, subscribeToTeacherData, seedInitialDataIfEmpty } from './lib/firebase';
   import type { ScheduleEvent, TodoItem, WeeklyTimetable, MorningBriefingItem, AIParsedResult, MultiParsedItem } from './lib/types';
   import { SAMPLE_NOTICE_IMAGE, DEMO_AI_PARSED } from './lib/mockData';
   import { parseTeacherInboxWithGemini, type ParseResultData } from './lib/gemini';
@@ -99,9 +99,9 @@
       await seedInitialDataIfEmpty('default_teacher', {
         events,
         todos,
-        timetable,
+        timetable: timetable || Storage.getTimetable(),
         briefings,
-        settings,
+        settings: settings || Storage.getSettings(),
       });
     }
   });
@@ -480,9 +480,9 @@
         await seedInitialDataIfEmpty('default_teacher', {
           events,
           todos,
-          timetable,
+          timetable: timetable || Storage.getTimetable(),
           briefings,
-          settings,
+          settings: newSettings,
         });
       }
     }

@@ -14,7 +14,7 @@
     isToday as isTodayDate,
   } from 'date-fns';
   import { ko } from 'date-fns/locale';
-  import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, FileSearch } from 'lucide-svelte';
+  import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-svelte';
   import type { ScheduleEvent, EventCategory } from '../lib/types';
 
   export let events: ScheduleEvent[] = [];
