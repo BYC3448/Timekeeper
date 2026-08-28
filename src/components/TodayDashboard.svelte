@@ -84,7 +84,7 @@
       isRollover: false,
     }));
 
-  $: targetTodos = isToday
+  $: targetTodos = (isToday
     ? [
         // 1. 오늘 날짜로 등록된 업무/이벤트 (가운데 To-Do로 직행)
         ...todayEventsAsTodos,
@@ -95,7 +95,7 @@
         // 3. 오늘 날짜의 할 일
         ...safeTodos.filter((t) => t && t.date === todayStr),
       ]
-    : safeTodos.filter((t) => t && t.date === selectedDateStr);
+    : safeTodos.filter((t) => t && t.date === selectedDateStr)) as TodoItem[];
 
   $: completedCount = targetTodos.filter((t) => t?.isCompleted).length;
   $: progressPercent =

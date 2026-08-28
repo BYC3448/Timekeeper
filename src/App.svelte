@@ -204,7 +204,7 @@
             else if (it.category === '생기부' || it.category === '행정') cat = 'document';
             else if (it.category === '상담') cat = 'student';
             else if (it.category === '회의' || it.category === '연수') cat = 'meeting';
-            else if (it.category === '행사') cat = 'event';
+            else if ((it.category as string) === '행사') cat = 'event';
 
             return {
               id: `multi-${Date.now()}-${idx}`,
