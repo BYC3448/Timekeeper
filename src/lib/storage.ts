@@ -36,6 +36,7 @@ const KEYS = {
   TIMETABLE: 'tcal_timetable_v1',
   BRIEFINGS: 'tcal_briefings_v1',
   SETTINGS: 'tcal_settings_v1',
+  ONBOARDING: 'tcal_onboarding_v1',
 };
 
 export interface AppSettings {
@@ -309,6 +310,14 @@ export const Storage = {
     if (isFirebaseConnected()) {
       saveSettingsToFirestore(settings);
     }
+  },
+
+  // 온보딩 완료 여부
+  getOnboardingCompleted: (): boolean => {
+    return safeGet<boolean>(KEYS.ONBOARDING, false);
+  },
+  setOnboardingCompleted: (value: boolean): void => {
+    safeSet(KEYS.ONBOARDING, value);
   },
 
   // 전체 데이터 리셋 (초기 샘플 복원)

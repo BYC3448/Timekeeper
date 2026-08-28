@@ -8,6 +8,7 @@
   import TimetableModal from './components/TimetableModal.svelte';
   import SettingsModal from './components/SettingsModal.svelte';
   import TextInputModal from './components/TextInputModal.svelte';
+  import OnboardingModal from './components/OnboardingModal.svelte';
 
   import { Storage, type AppSettings } from './lib/storage';
   import { initFirebase, subscribeToTeacherData, seedInitialDataIfEmpty } from './lib/firebase';
@@ -73,6 +74,7 @@
   let isTimetableOpen = false;
   let isSettingsOpen = false;
   let isTextInputOpen = false;
+  let isOnboardingOpen = false;
 
   // 데이터 로드 및 Firebase / 라우터 초기화
   onMount(async () => {
@@ -86,6 +88,10 @@
     timetable = Storage.getTimetable();
     briefings = Storage.getBriefings();
     settings = Storage.getSettings();
+
+    if (!Storage.getOnboardingCompleted()) {
+      isOnboardingOpen = true;
+    }
 
     // Firebase 초기화 시도
     firebaseConnected = initFirebase(settings?.firebaseConfig);
@@ -112,6 +118,58 @@
       window.removeEventListener('hashchange', updateRouteFromHash);
     }
   });
+
+  // 온보딩 완료 핸들러
+  function handleOnboardingComplete(e: CustomEvent) {
+    const { profile, timetable: parsedTimetable, calendarItems } = e.detail;
+
+    if (profile) {
+      const newSettings: AppSettings = {
+        ...(settings!),
+        teacherName: profile.teacherName,
+        schoolName: profile.schoolName,
+        profile: {
+          schoolName: profile.schoolName,
+          teacherName: profile.teacherName,
+          isHomeroom: profile.isHomeroom,
+          homeroomClass: profile.homeroomClass,
+          department: profile.department,
+          position: profile.position,
+          subjects: profile.subjects,
+          extraDuties: profile.extraDuties,
+        },
+      };
+      settings = newSettings;
+      Storage.saveSettings(newSettings);
+    }
+
+    if (parsedTimetable) {
+      timetable = Storage.saveTimetable(parsedTimetable);
+      confetti({ particleCount: 40 });
+    }
+
+    if (calendarItems && calendarItems.length > 0) {
+      const catMap: Record<string, string> = {
+        '평가': 'exam', '생기부': 'document', '행정': 'document',
+        '연수': 'meeting', '상담': 'student', '회의': 'meeting',
+        '수업': 'event', '행사': 'event', '기타': 'general',
+      };
+      const newEvents: ScheduleEvent[] = calendarItems.map((item: any) => ({
+        id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        title: item.title,
+        date: item.date || format(new Date(), 'yyyy-MM-dd'),
+        category: (catMap[item.category] || 'general') as ScheduleEvent['category'],
+        priority: (item.overdue ? 'urgent' : 'medium') as ScheduleEvent['priority'],
+        description: item.mineReason || item.note,
+        sourceType: 'manual' as const,
+        createdAt: new Date().toISOString(),
+      }));
+      events = Storage.saveEvents([...newEvents, ...events]);
+    }
+
+    Storage.setOnboardingCompleted(true);
+    isOnboardingOpen = false;
+  }
 
   // 전체 리셋 핸들러
   function handleResetData() {
@@ -145,15 +203,8 @@
       currentSourceText = input.data;
       currentSourceImage = undefined;
     } else if (input.type === 'hwp') {
-      const upstageKey = import.meta.env.VITE_UPSTAGE_API_KEY || settings?.upstageApiKey;
-      if (!upstageKey || upstageKey.trim().length < 5) {
-        alert('HWP 파일을 읽으려면 Upstage API 키가 필요합니다.\n\n.env 파일에 VITE_UPSTAGE_API_KEY=up_... 형태로 입력해 주세요.');
-        isProcessing = false;
-        return;
-      }
       try {
         textContent = await parseDocumentWithUpstage({
-          apiKey: upstageKey,
           fileBase64: input.data,
           fileName: input.fileName || 'document.hwp',
         });
@@ -167,31 +218,8 @@
     }
 
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || settings?.geminiApiKey;
-
-      if (!apiKey || apiKey.trim().length < 5) {
-        const proceedWithDemo = confirm(
-          'Gemini API 키가 아직 등록되지 않았습니다!\n\n.env 파일에 VITE_GEMINI_API_KEY=AIzaSy... 형태로 입력하시면 실제 던지신 이미지나 텍스트를 실시간으로 분석합니다.\n\n지금은 준비된 [시연용 예시 공문]으로 데모를 진행할까요?'
-        );
-        if (proceedWithDemo) {
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          currentParsed = {
-            ...DEMO_AI_PARSED,
-            type: '마감',
-            mineReason: '2학년 담당 교과이므로',
-            ignored: [{ text: '교육연수부-1427(2026. 7. 21.)', reason: '근거 문서 번호' }],
-          };
-          currentSourceImage = SAMPLE_NOTICE_IMAGE;
-          isReviewOpen = true;
-        } else {
-          isSettingsOpen = true;
-        }
-        return;
-      }
-
-      // 파싱프롬프트.md 공식 지시문으로 분석 실행
+      // 파싱프롬프트.md 공식 지시문으로 분석 실행 (API 키는 /api/gemini 서버에서 처리)
       const result: ParseResultData = await parseTeacherInboxWithGemini({
-        apiKey,
         imageFileBase64: imageBase64,
         mimeType: input.mimeType,
         textContent: textContent,
@@ -564,6 +592,13 @@
     </main>
 
     <!-- 5. 모달 다이얼로그 모음 -->
+    <!-- (0) 온보딩 초기 설정 마법사 (최초 실행 시에만) -->
+    <OnboardingModal
+      isOpen={isOnboardingOpen}
+      settings={settings}
+      on:complete={handleOnboardingComplete}
+    />
+
     <!-- (1) AI 파싱 검토 및 교사 최종 확정 모달 -->
     <AIReviewModal
       isOpen={isReviewOpen}

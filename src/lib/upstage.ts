@@ -1,41 +1,33 @@
 /**
- * Upstage Document Parse API
- * 역할: HWP / PDF 등 한글 공문서를 텍스트(마크다운)로 변환
- * Gemini가 읽기 전 전처리 단계로 사용
+ * Upstage Document Parse — 서버 프록시(/api/upstage)를 통해 호출합니다.
+ * API 키는 서버에만 보관되어 브라우저에 노출되지 않습니다.
  */
 export async function parseDocumentWithUpstage(params: {
-  apiKey: string;
+  apiKey?: string; // 하위 호환용, 서버 모드에서는 사용되지 않음
   fileBase64: string; // data URL (base64)
   fileName: string;
 }): Promise<string> {
-  const { apiKey, fileBase64, fileName } = params;
+  const { fileBase64, fileName } = params;
 
-  // data URL → Blob 변환
-  const [header, base64Data] = fileBase64.split(',');
-  const mimeType = header.match(/:(.*?);/)?.[1] || 'application/octet-stream';
-  const byteChars = atob(base64Data);
-  const byteArray = new Uint8Array(byteChars.length);
-  for (let i = 0; i < byteChars.length; i++) {
-    byteArray[i] = byteChars.charCodeAt(i);
-  }
-  const blob = new Blob([byteArray], { type: mimeType });
+  // data URL에서 순수 base64와 mimeType 분리
+  const hasDataPrefix = fileBase64.includes(',');
+  const pureBase64 = hasDataPrefix ? fileBase64.split(',')[1] : fileBase64;
+  const mimeType = hasDataPrefix
+    ? fileBase64.split(';')[0].split(':')[1]
+    : 'application/octet-stream';
 
-  const formData = new FormData();
-  formData.append('document', blob, fileName);
-
-  const response = await fetch('https://api.upstage.ai/v1/document-digitization', {
+  const response = await fetch('/api/upstage', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: formData,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileBase64: pureBase64, mimeType, fileName }),
   });
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(`Upstage 문서 파싱 오류: ${err?.detail || `HTTP ${response.status}`}`);
+    const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+    throw new Error(err.error || 'Upstage 문서 파싱 실패');
   }
 
   const data = await response.json();
-  const text = data?.content?.markdown || data?.content?.text;
-  if (!text) throw new Error('Upstage가 문서 내용을 추출하지 못했습니다.');
-  return text;
+  if (!data.text) throw new Error('Upstage가 문서 내용을 추출하지 못했습니다.');
+  return data.text;
 }
