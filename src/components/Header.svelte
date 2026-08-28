@@ -5,7 +5,6 @@
 
   export let schoolName: string = '새솔고등학교';
   export let teacherName: string = '김선생님';
-  export let hasApiKey: boolean = false;
   export let firebaseConnected: boolean = false;
   export let activePage: AppRoute = 'today';
 
@@ -109,14 +108,11 @@
       <button
         type="button"
         on:click={() => dispatch('openSettings')}
-        class={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-medium transition active:scale-95 border cursor-pointer ${
-          hasApiKey
-            ? 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-            : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 animate-bounce'
-        }`}
+        class="flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-medium transition active:scale-95 border bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 cursor-pointer"
+        title="환경 설정"
       >
         <Settings class="w-3.5 h-3.5" />
-        <span>{hasApiKey ? '설정' : 'API 키 등록'}</span>
+        <span>설정</span>
       </button>
 
       <!-- 리셋 버튼 -->

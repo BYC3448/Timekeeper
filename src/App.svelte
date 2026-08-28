@@ -150,11 +150,11 @@
     }
 
     try {
-      const apiKey = settings?.geminiApiKey;
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || settings?.geminiApiKey;
 
       if (!apiKey || apiKey.trim().length < 5) {
         const proceedWithDemo = confirm(
-          'Gemini API 키가 아직 등록되지 않았습니다!\n\n우측 상단 [설정]에서 본인의 Gemini API 키를 입력하시면 실제 던지신 이미지나 텍스트를 실시간으로 분석합니다.\n\n지금은 준비된 [시연용 예시 공문]으로 데모를 진행할까요?'
+          'Gemini API 키가 아직 등록되지 않았습니다!\n\n.env 파일에 VITE_GEMINI_API_KEY=AIzaSy... 형태로 입력하시면 실제 던지신 이미지나 텍스트를 실시간으로 분석합니다.\n\n지금은 준비된 [시연용 예시 공문]으로 데모를 진행할까요?'
         );
         if (proceedWithDemo) {
           await new Promise((resolve) => setTimeout(resolve, 800));
@@ -502,7 +502,6 @@
     <Header
       schoolName={settings.schoolName}
       teacherName={settings.teacherName}
-      hasApiKey={!!settings.geminiApiKey}
       firebaseConnected={firebaseConnected}
       activePage={activeTab}
       on:changePage={(e) => (activeTab = e.detail)}

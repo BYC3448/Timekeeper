@@ -55,7 +55,7 @@
   let savedToast = false;
 
   $: if (isOpen && settings) {
-    geminiApiKey = settings.geminiApiKey || '';
+    geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY || settings.geminiApiKey || '';
     autoMask = settings.autoMaskPersonalInfo ?? true;
     schoolName = settings.schoolName || '새솔고등학교';
     teacherName = settings.teacherName || '김선생님';
@@ -274,11 +274,11 @@
                 id="gemini-key-input"
                 type="password"
                 bind:value={geminiApiKey}
-                placeholder="AIzaSy..."
+                placeholder="AIzaSy... 또는 .env 파일의 VITE_GEMINI_API_KEY"
                 class="w-full px-3.5 py-2.5 text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none"
               />
               <p class="text-[11px] text-slate-500 mt-1">
-                API 키는 브라우저 로컬 저장소에만 안전하게 보관되며 외부 서버로 전송되지 않습니다.
+                프로젝트 루트의 <code class="text-blue-600 font-bold font-mono">.env</code> 파일에 <code class="text-indigo-600 font-bold font-mono">VITE_GEMINI_API_KEY</code>로 입력해 두시면 별도 입력 없이 자동으로 안전하게 연동됩니다.
               </p>
             </div>
 
